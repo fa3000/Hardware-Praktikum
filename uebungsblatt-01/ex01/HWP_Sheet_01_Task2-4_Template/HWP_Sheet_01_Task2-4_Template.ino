@@ -7,13 +7,39 @@
 //             You can also write the answers to the questions here.
 // ------------------------------------------------------------
 
-#define SGP30_ADDR       0x00   // 7-bit I2C address of the SGP30 
+#define SGP30_ADDR       0x58   // 7-bit I2C address of the SGP30 
+
+/*
+Which address belongs to the SGP30?
+Antwort: 0x58
+
+What is the two-byte command code for initialization?
+Antwort: Init_air_quality -> 0x2003 (Aus Datenblatt Tabelle 10)
+
+What is the two-byte command code for measurement?
+Antwort: Measure_air_quality -> 0x2008 (Aus Datenblatt Tabelle 10)
+
+How many bytes does a measurement response contain? What does each byte repre-
+sent?
+Antwort: Laut Datenblatt Tabelle 10 ist die response length 6 bytes.
+
+"The sensor responds with 2 data bytes (MSB first) and 1 CRC byte for each of the
+two preprocessed air quality signals in the order CO2eq (ppm) and TVOC (ppb)."
+
+Byte 1: CO2 MSB
+Byte 2: CO2 LSB
+Byte 3: CRC for CO2
+
+Byte 4: TVOC MSB
+Byte 5: TVOC LSB
+Byte 6: CRC for TVOC
+*/
 
 // Command codes (2 bytes each, MSB first — see datasheet )
-#define CMD_INIT_MSB     0x00   //    first byte
-#define CMD_INIT_LSB     0x00   //    second byte
-#define CMD_MEAS_MSB     0x00
-#define CMD_MEAS_LSB     0x00
+#define CMD_INIT_MSB     0x20   //    first byte
+#define CMD_INIT_LSB     0x03   //    second byte
+#define CMD_MEAS_MSB     0x20
+#define CMD_MEAS_LSB     0x08
 
 // Display: air quality range for mapping CO2 to a percentage, you can change these to test more ranges
 #define CO2_MIN          400    // ppm — clean outdoor air
@@ -42,6 +68,8 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 uint8_t raw_co2_msb,  raw_co2_lsb;   // assign values with sgp30_read()
 uint8_t raw_tvoc_msb, raw_tvoc_lsb;  // assign values with sgp30_read()
 
+unsigned long last_measure = 0; // In order to measure 1s pauses
+
 
 
 void sgp30_cmd(uint8_t msb, uint8_t lsb) {
@@ -53,7 +81,13 @@ void sgp30_cmd(uint8_t msb, uint8_t lsb) {
   // ------------------------------------------------------------
   // TODO: open a transmission to SGP30_ADDR,
   //       write msb, write lsb, close the transmission.
-  //       
+  // 
+
+  Wire.beginTransmission(SGP30_ADDR);
+  Wire.write(msb);
+  Wire.write(lsb);
+  Wire.endTransmission();
+
 }
 
 
@@ -74,8 +108,25 @@ bool sgp30_read(uint8_t n) {
   //       Read the n bytes in order, remember wire.read() can only
   //       read one byte at a time. Look out for CRC bytes,  
   //       we don't need to store those.  
-  //      
-  return false;
+  //
+
+  // Requested n data bytes get buffered
+  if(Wire.requestFrom(SGP30_ADDR, n) != n){
+    return false;
+  };
+
+  // Read buffered bytes one by one
+  // We know for the measurement we will get 6 bytes
+  raw_co2_msb = Wire.read();
+  raw_co2_lsb = Wire.read();
+  Wire.read(); // CRC not needed
+
+  raw_tvoc_msb = Wire.read();
+  raw_tvoc_lsb = Wire.read();
+  Wire.read(); // CRC not needed
+
+  return true;
+
 }
 
 
@@ -126,11 +177,41 @@ void setup() {
   //       You can use decimal adresses when sending but convert them to hex when printing them out.
   //       Use Serial.print(address, HEX) to make it easier.
 
+  Wire.begin(); // Initialise I2C hardware
+
+  Serial.println("Starting address scan");
+
+  uint8_t address = 8;
+  
+  for(address; address < 128; address++){
+    Wire.beginTransmission(address);
+
+    if(Wire.endTransmission() == 0 ) {
+      Serial.print("0x");
+      Serial.println(address, HEX);
+    }
+  }
+
+  /*
+  Adressen gefunden: 0x3C, 0x51, 0x58
+  Laut Datenblatt hat der SGP30 Adresse 0x58
+  */
+
+
   //     Task 2 iv.): Initialise SGP30 
   // TODO: send the init command, wait for initialization
   //       and print out a message.
 
- 
+  sgp30_cmd(CMD_INIT_MSB, CMD_INIT_LSB);
+
+  // Laut Datenblatt max duration für INIT 10ms
+  unsigned long start_init = millis();
+
+  while(millis() - start_init < 10UL){
+  }
+
+  Serial.println("Initialization Phase complete"); 
+
 
   // --- Task 3 i.): Simple display use ---
   // TODO: initialize display, set a font, display "Hardware Praktikum 2026",
@@ -141,10 +222,32 @@ void setup() {
 void loop() {
   // --- Task 2 iv.): Send measure command and read response ---
   // TODO: call sgp30_cmd() with the measure command bytes.
+
+  if(millis() - last_measure > 1000UL){
+    sgp30_cmd(CMD_MEAS_MSB, CMD_MEAS_LSB);
+    last_measure = millis();
+    // Measurement max duration 12ms
+    delay(12);
+
   // TODO: call sgp30_read().
   //       If it returns false, print an error message and return early.
-  // TODO: Reconstruct 16-bit values from the raw bytes ----
+    if(!sgp30_read(6)){
+      Serial.println("ERROR: Measurement unsuccessful");
+      return;
+    }
+    // TODO: Reconstruct 16-bit values from the raw bytes ----
+    //raw_msb muss um 8 bit nach links geschoben werden (2^8 = 256)
+    uint16_t co2 = raw_co2_msb * 256 + raw_co2_lsb;
+    uint16_t tvoc = raw_tvoc_msb * 256 + raw_tvoc_lsb;
+
   // TODO: print co2 and tvoc with appropriate labels and units.
+    Serial.print("CO2eq: ");
+    Serial.print(co2);
+    Serial.print(" ppm, TVOC: ");
+    Serial.print(tvoc);
+    Serial.println(" ppb");
+  }
+
 
   // --- Task 3 ii.): Print the sgp30 values on the display
   //                  in addition to the Serial monitor 
