@@ -262,9 +262,10 @@ void loop() {
       return;
     }
     // TODO: Reconstruct 16-bit values from the raw bytes ----
-    //raw_msb muss um 8 bit nach links geschoben werden (2^8 = 256)
-    uint16_t co2 = raw_co2_msb * 256 + raw_co2_lsb;
-    uint16_t tvoc = raw_tvoc_msb * 256 + raw_tvoc_lsb;
+    // raw_msb muss um 8 bit nach links geschoben werden (2^8 = 256)
+    uint16_t co2 = (raw_co2_msb << 8) | raw_co2_lsb;
+    uint16_t tvoc = (raw_tvoc_msb << 8) | raw_tvoc_lsb;
+
 
   // TODO: print co2 and tvoc with appropriate labels and units.
     Serial.print("CO2eq: ");
