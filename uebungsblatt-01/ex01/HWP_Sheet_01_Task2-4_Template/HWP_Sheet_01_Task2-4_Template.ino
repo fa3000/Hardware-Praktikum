@@ -161,6 +161,23 @@ void display_values(uint16_t co2, uint16_t tvoc) {
   //
   // ------------------------------------------------------------
   // TODO (Task 3): set cursor, print co2 and tvoc values.
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_6x10_tf);
+
+  // show CO2 Levels
+  u8g2.setCursor(0, 15);
+  u8g2.print("CO2: ");
+  u8g2.print(co2);
+  u8g2.print(" ppm");
+
+  // show TVOC
+  u8g2.setCursor(0, 35);
+  u8g2.print("TVOC: ");
+  u8g2.print(tvoc);
+  u8g2.print(" ppb");
+
+  u8g2.sendBuffer();
+
   // TODO (Task 4): map co2 to pct (0-100), draw a filled bar with
   //                u8g2.drawBox(x, y, width, height).
   //                Bar width  = map(pct, 0, 100, 0, 128)
@@ -216,6 +233,15 @@ void setup() {
   // --- Task 3 i.): Simple display use ---
   // TODO: initialize display, set a font, display "Hardware Praktikum 2026",
   //       and push it to the screen.
+
+  u8g2.begin();
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_6x10_tr);
+  u8g2.drawStr(0,10,"Hardware Praktikum");
+  u8g2.sendBuffer();
+
+  delay(2000);
+
 }
 
 
@@ -246,11 +272,11 @@ void loop() {
     Serial.print(" ppm, TVOC: ");
     Serial.print(tvoc);
     Serial.println(" ppb");
-  }
-
 
   // --- Task 3 ii.): Print the sgp30 values on the display
   //                  in addition to the Serial monitor 
+  display_values(co2, tvoc);
+  }
 
   // --- Task 4: Map CO2 to a percentage ---
   // TODO: use map() to scale co2 from raw values to 0-100%.
