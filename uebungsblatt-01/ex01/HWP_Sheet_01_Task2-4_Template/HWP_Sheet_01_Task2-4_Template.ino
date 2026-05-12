@@ -126,7 +126,6 @@ bool sgp30_read(uint8_t n) {
   Wire.read(); // CRC not needed
 
   return true;
-
 }
 
 
