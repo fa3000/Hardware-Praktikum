@@ -312,5 +312,5 @@ void loop() {
   //       Then use constrain() to make sure the percetange 
   //       doesnt go outside 0-100.
 
-  // contain in funktion display_values()
+  // contain in funktion display_values() to keep the code clean
 }
