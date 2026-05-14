@@ -164,23 +164,52 @@ void display_values(uint16_t co2, uint16_t tvoc) {
   u8g2.setFont(u8g2_font_6x10_tf);
 
   // show CO2 Levels
-  u8g2.setCursor(0, 15);
+  u8g2.setCursor(0, 40);
   u8g2.print("CO2: ");
   u8g2.print(co2);
   u8g2.print(" ppm");
 
   // show TVOC
-  u8g2.setCursor(0, 35);
+  u8g2.setCursor(0, 55);
   u8g2.print("TVOC: ");
   u8g2.print(tvoc);
   u8g2.print(" ppb");
 
-  u8g2.sendBuffer();
+  //u8g2.sendBuffer(); (commented out for task 4)
 
   // TODO (Task 4): map co2 to pct (0-100), draw a filled bar with
   //                u8g2.drawBox(x, y, width, height).
   //                Bar width  = map(pct, 0, 100, 0, 128)
   //                Remember: constrain pct to [0, 100] before mapping.
+   
+  uint16_t mappedCo2 = map(co2, 400, 2000, 0, 100); // map co2 to percent
+  uint16_t co2percent = constrain(mappedCo2, 0, 100);
+
+  //draw diagram of co2 level
+  uint16_t BarWidth = map(co2percent, 0, 100, 0, 128);
+  u8g2.drawBox(0, 2, BarWidth, 10);
+
+  //show co2 level in percent
+  u8g2.setCursor(0, 25);
+  u8g2.print("Co2 Level: ");
+  u8g2.print(co2percent);
+  u8g2.print(" %");
+
+  // draw smiley
+  u8g2.drawCircle(108, 40, 19);
+  u8g2.drawCircle(101, 33, 1);
+  u8g2.drawCircle(115, 33, 1);
+  if(co2percent < 25){
+    u8g2.drawArc(108, 31, 17, 172, 212);
+  }
+  else if(co2percent > 50){
+    u8g2.drawArc(108, 65, 17, 44, 84);
+  }
+  else{
+    u8g2.drawLine(99, 45, 117, 45);
+  }
+
+  u8g2.sendBuffer();
 }
 
 
