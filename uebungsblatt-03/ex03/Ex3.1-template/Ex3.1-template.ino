@@ -41,17 +41,17 @@ void setup() {
   analogReadResolution(12);
 }
 
-uint32_t lastMillis = 0;
+uint32_t lastSample = 0;
 
 void loop() {
   // implement non-blocking timing using millis()
   // Current Time
-  uint32_t currentMillis = millis();
+  uint32_t now = millis();
 
   // The system should sample every 500 ms
-  if (currentMillis - lastMillis >= TIMING_MS) {
+  if (now - lastSample >= TIMING_MS) {
     // set time
-    lastMillis = currentMillis;
+    lastSample = now;
 
     // read raw value from light sensor (12Bit ADC = 0-4095)
     uint16_t rawValue = analogRead(SENSOR_PIN);
