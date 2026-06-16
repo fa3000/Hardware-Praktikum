@@ -88,7 +88,7 @@ void loop() {
     Serial.print(lastValidTemp, 1);
     Serial.print("C RH=");
     Serial.print(lastValidHum, 1);
-    Serial.print("% dewPoint =");
+    Serial.print("% dewPoint=");
     Serial.print(dewPoint, 1);
     Serial.println("C");
 
