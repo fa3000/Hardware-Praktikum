@@ -23,6 +23,8 @@ LSM6DS3 myIMU(I2C_MODE, 0x6A);
 #define CONVERT_G_TO_MS2 9.80665f
 #define FREQUENCY_HZ 50
 #define INTERVAL_MS (1000 / (FREQUENCY_HZ + 1))
+#define ORIENTATION_THRESHOLD 6.92964f // sin(45°) * 9,80
+#define GESTURE_THRESHOLD 1
 
 static unsigned long last_interval_ms = 0;
 
@@ -43,6 +45,8 @@ bool buffer_full = false;
 // - lastDetectedGesture: from accelerometer FSM
 // - lastDynamicGesture: from gyroscope
 
+  String lastDetectedGesture = "NONE";
+
 
 
 // =====================
@@ -62,6 +66,27 @@ String detectOrientation(float ax, float ay, float az) {
   // TODO: Detect device orientation from accelerometer
   // Use thresholds on ay and az axes
 
+
+  // If the device does not get additional acceleration from
+  // outside, no two states can be reached at once.
+
+  // Up between 45° and 135°
+  if(az > ORIENTATION_THRESHOLD){
+    return "FACE UP";
+  }
+  // Left between 135° and 225°
+  else if(ay > ORIENTATION_THRESHOLD){
+    return "LEFT";
+  }
+   // Down between 225° and 315°
+  else if(az < -ORIENTATION_THRESHOLD){
+    return "FACE DOWN";
+  }
+  // Right between 315° and 45°
+  else if(ay < -ORIENTATION_THRESHOLD){
+    return "RIGHT";
+  }
+
   return "UNKNOWN";
 }
 
@@ -74,6 +99,32 @@ String detectGestureWindow() {
   // TODO: Detect SUPINATION/PRONATION from Z-axis acceleration buffer
   // Analyze min/max range and motion direction
 
+  // Compute min and max values
+  float min = az_buffer[0];
+  float max = az_buffer[0];
+
+  for(int i = 1; i < WINDOW_SIZE; i++){
+    if(az_buffer[i] > max){
+      max = az_buffer[i];
+    }
+    if(az_buffer[i]< min){
+      min = az_buffer[i];
+    }
+  }
+
+  // Compute Differenz
+  float diff = max - min;
+
+  if(diff > GESTURE_THRESHOLD){
+    // Compare first and last value for direction
+    // Ring buffer: Element 0 is the oldest value and WINDOW_SIZE-1 is the newest
+    if(az_buffer[WINDOW_SIZE - 1] < az_buffer[0]){
+      return "SUPINATION";
+    }
+    if(az_buffer[WINDOW_SIZE - 1] > az_buffer[0]){
+      return "PRONATION";
+    }
+  }
   return "NONE";
 }
 
@@ -140,13 +191,15 @@ void loop() {
     // TODO: Convert accelerometer from G to m/s² using CONVERT_G_TO_MS2
     // TODO: Read gyroscope (gyrX, gyrY, gyrZ) from myIMU
 
-    float ax;  // TODO
-    float ay;  // TODO
-    float az;  // TODO
 
-    float gyrX;  // TODO
-    float gyrY;  // TODO
-    float gyrZ;  // TODO
+
+    float ax = myIMU.readFloatAccelX() * CONVERT_G_TO_MS2;  // TODO
+    float ay = myIMU.readFloatAccelY() * CONVERT_G_TO_MS2;  // TODO
+    float az = myIMU.readFloatAccelZ() * CONVERT_G_TO_MS2;  // TODO
+
+    float gyrX = myIMU.readFloatGyroX();  // TODO
+    float gyrY = myIMU.readFloatGyroY();  // TODO
+    float gyrZ = myIMU.readFloatGyroZ();  // TODO
 
 
     // =====================
@@ -172,7 +225,16 @@ void loop() {
     // =====================
     // TODO: Call detectGestureWindow() or detectGestureFSM()
     // TODO: If gesture detected (not "NONE"), store in lastDetectedGesture
-    String detectedGesture = "NONE";  // TODO: Replace with actual detection
+    
+    if(buffer_full){
+      String detectedGesture = detectGestureWindow();  // TODO: Replace with actual detection
+      if(detectedGesture != "NONE"){
+        lastDetectedGesture = detectedGesture;
+      }
+      // Wait until buffer is full again before next gesture detection
+      buffer_full = false;
+    }
+
 
     // =====================
     // Part D: Gyroscope-based Dynamic Gesture Detection
@@ -198,8 +260,8 @@ void loop() {
     Serial.print(" | Accelerometer Gesture: ");
     Serial.print(lastDetectedGesture);
 
-    Serial.print(" | Gyro Gesture: ");
-    Serial.println(lastDynamicGesture);
+    Serial.println(" | Gyro Gesture: ");
+    //Serial.println(lastDynamicGesture);
   
 
     // =====================
